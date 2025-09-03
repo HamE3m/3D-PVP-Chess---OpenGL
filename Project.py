@@ -174,6 +174,7 @@ black_list = [queen_black, king_black, rook1_black, rook2_black, bishop1_black,
               bishop2_black, knight1_black, knight2_black, pawn1_black, pawn2_black, 
               pawn3_black, pawn4_black, pawn5_black, pawn6_black, pawn7_black, pawn8_black]
 
+
 # Call the whites
 queen_white = Chess_Piece('White Queen', 100, 700, white)
 king_white = Chess_Piece('White King', -100, 700, white)
@@ -195,6 +196,7 @@ pawn8_white = Chess_Piece('White Pawn', -700, 500, white)
 white_list = [queen_white, king_white, rook1_white, rook2_white, bishop1_white,
                bishop2_white, knight1_white, knight2_white, pawn1_white, pawn2_white,
                  pawn3_white, pawn4_white, pawn5_white, pawn6_white, pawn7_white, pawn8_white]
+
 
 def draw_grid():
     glBegin(GL_QUADS)
@@ -219,27 +221,28 @@ def draw_grid():
 def keyboardListener(key, x, y):
     global queen_black, selected_piece, highlight, game_over, turn, board_label
     if not game_over:
-        # Move forward (W key)
+        # Move Cursor Up (W key)
         if key == b'w':
             if highlight[1] > -700:
                 highlight[1] -= 200
 
-        # Move backward (S key)
+        # Move Cursor Down (S key)
         if key == b's':
             if highlight[1] < 700:
                 highlight[1] += 200
 
 
-        # Rotate gun left (A key)
+        # Move Cursor Left (A key)
         if key == b'a':
             if highlight[0] < 700:
                 highlight[0] += 200
 
-        # Rotate gun right (D key)
+        # Move Cursor Right (D key)
         if key == b'd':
             if highlight[0] > -700:
                 highlight[0] -= 200
 
+        # Select/Deselect Piece (Space key)
         if key == b' ':
             if turn == 'White':
                 for piece in white_list:
@@ -248,6 +251,8 @@ def keyboardListener(key, x, y):
                             selected_piece = None
                         else:
                             selected_piece = piece
+                    elif selected_piece:
+                        selected_piece.move(highlight[0], highlight[1])
             else:
                 for piece in black_list:
                     if piece.x == highlight[0] and piece.y == highlight[1]:
@@ -255,6 +260,8 @@ def keyboardListener(key, x, y):
                             selected_piece = None
                         else:
                             selected_piece = piece
+                    elif selected_piece:
+                        selected_piece.move(highlight[0], highlight[1])
 
         # Toggle cheat vision (V key)
         if key == b'v':
