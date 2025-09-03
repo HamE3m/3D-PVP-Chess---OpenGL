@@ -1,10 +1,10 @@
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
+import random
 import math
-import time
 
-camera_pos = (0,400,800)
+camera_pos = (0,200,500)
 fovY = 120
 grid_start = -800
 white = (0.8, 0.8, 0.8)
@@ -16,16 +16,6 @@ game_over = False
 top_down_view = False
 white_wins = False
 black_wins = False
-captured_black = []
-captured_white = []
-black_capture_count = 0
-white_capture_count = 0
-
-
-
-white_time = 600
-black_time = 600
-last_time = time.time()
 
 board_label = [
     (8,"A", 700, -700), (8,"B", 500, -700), (8,"C", 300, -700), (8,"D", 100, -700), (8,"E", -100, -700), (8,"F", -300, -700), (8,"G", -500, -700), (8,"H", -700, -700),
@@ -230,72 +220,14 @@ def draw_grid():
     glEnd()
 
 
-def format_time(second):
-    minutes = int(second // 60)
-    secs = int(second % 60)
-    return f"{minutes:02d}:{secs:02d}"
-
-def update_timer():
-    global white_time, black_time, last_time, game_over, white_wins, black_wins
-    if game_over:
-        return
-    current_time = time.time()
-    time_elapsed = current_time - last_time
-    last_time = current_time
-    
-    if turn:
-        white_time -= time_elapsed
-        if white_time <= 0:
-            white_time = 0
-            black_wins = True
-            game_over = True
-    else:
-        black_time -= time_elapsed
-        if black_time <= 0:
-            black_time = 0
-            white_wins = True
-            game_over = True
-
-
-def check_blacks(x, y):
-    for piece in black_list:
-        if piece not in captured_black:
-                if x == piece.x and y == piece.y:
-                    return piece
-
-def delete_black(piece):
-    global black_capture_count
-    captured_black.append(piece)
-    piece.move(-1000, 700 - black_capture_count * 100)
-    black_list.remove(piece)
-
-
-def check_whites(x, y):
-    for piece in white_list:
-        if piece not in captured_white:
-            if x == piece.x and y == piece.y:
-                return piece
-
-def delete_white(piece):
-    global white_capture_count
-
-    captured_white.append(piece)
-    piece.move(1000, -700 + white_capture_count * 100)
-    white_list.remove(piece)
-
-
-
 def reset_game():
-    global turn, selected_piece, game_over, pointer, white_wins, black_wins, white_time, black_time, last_time
+    global turn, selected_piece, game_over, pointer, white_wins, black_wins
     turn = True
     selected_piece = None
     game_over = False
     white_wins = False
     black_wins = False
     pointer = [100, 100]
-    white_time = 600
-    black_time = 600
-    last_time = time.time()
 
     # Reset black pieces
     queen_black.move(100, -700)
@@ -335,7 +267,7 @@ def reset_game():
 
 
 def keyboardListener(key, x, y):
-    global queen_black, selected_piece, pointer, game_over, turn, board_label, white_wins, black_wins, last_time, captured_black, captured_white, white_capture_count, black_capture_count
+    global queen_black, selected_piece, pointer, game_over, turn, board_label, white_wins, black_wins
     if not game_over:
         # Move Cursor Up (W key)
         if key == b'w':
@@ -370,13 +302,8 @@ def keyboardListener(key, x, y):
                         return
                 if selected_piece:
                     selected_piece.move(pointer[0], pointer[1])
-                    black_piece = check_blacks(pointer[0], pointer[1])
-                    if black_piece:
-                        delete_black(black_piece)
-                        black_capture_count += 1
                     selected_piece = None
                     turn = not turn
-                    last_time = time.time()
 
             else:
                 for piece in black_list:
@@ -388,14 +315,8 @@ def keyboardListener(key, x, y):
                         return
                 if selected_piece:
                     selected_piece.move(pointer[0], pointer[1])
-                    white_piece = check_whites(pointer[0], pointer[1])
-                    if white_piece:
-                        delete_white(white_piece)
-                        white_capture_count += 1
-
                     selected_piece = None
                     turn = not turn
-                    last_time = time.time()
 
     # Reset the game if R key is pressed
     if key == b'r':
@@ -458,7 +379,6 @@ def setupCamera():
         gluLookAt(x, y, z, 0, 0, 0, 0, 0, 1)
 
 def idle():
-    update_timer()
     glutPostRedisplay()
     
 def showScreen():
@@ -509,24 +429,20 @@ def showScreen():
     pawn8_white.draw_pawn()
 
     # Text Display
-
-    draw_text(20, 10, f"White Time: {format_time(white_time)}")
-    draw_text(830, 10, f"Black Time: {format_time(black_time)}")
-
     if turn:
-        draw_text(20, 770, f"Turn: White")
+        draw_text(10, 770, f"Turn: White")
     else:
-        draw_text(20, 770, f"Turn: Black")
+        draw_text(10, 770, f"Turn: Black")
 
     if selected_piece:
         for row, col, x, y in board_label:
             if (x, y) == (selected_piece.x, selected_piece.y):
-                draw_text(20, 740, f"Selected Piece: {selected_piece.name} at {col}{row}")
+                draw_text(10, 740, f"Selected Piece: {selected_piece.name} at {col}{row}")
                 break
     else:
-        draw_text(20, 740, f"Selected Piece: No Piece is Selected")
+        draw_text(10, 740, f"Selected Piece: No Piece is Selected")
 
-    draw_text(20, 710, f"Something EPIC")
+    draw_text(10, 710, f"Something EPIC")
     if white_wins:
         draw_text(435, 720, f"White Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
     if black_wins:
@@ -538,7 +454,7 @@ def main():
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
-    wind = glutCreateWindow(b"3D Chess")
+    wind = glutCreateWindow(b"Lab 3")
     glutDisplayFunc(showScreen)
     glutKeyboardFunc(keyboardListener)
     glutSpecialFunc(specialKeyListener)
