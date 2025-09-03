@@ -1,17 +1,31 @@
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
-import random
 import math
+import time
 
-camera_pos = (0,200,500)
+camera_pos = (0,400,800)
 fovY = 120
 grid_start = -800
 white = (0.8, 0.8, 0.8)
 black = (0.4, 0.4, 0.4)
-highlight = [100, 100]
-game_score = 0
-turn = 'Black'
+pointer = [100, 100]
+turn = False
+selected_piece = None
+game_over = False
+top_down_view = False
+white_wins = False
+black_wins = False
+captured_black = []
+captured_white = []
+black_capture_count = 0
+white_capture_count = 0
+
+
+
+white_time = 600
+black_time = 600
+last_time = time.time()
 
 board_label = [
     (8,"A", 700, -700), (8,"B", 500, -700), (8,"C", 300, -700), (8,"D", 100, -700), (8,"E", -100, -700), (8,"F", -300, -700), (8,"G", -500, -700), (8,"H", -700, -700),
@@ -21,14 +35,11 @@ board_label = [
     (4,"A", 700, 100), (4,"B", 500, 100), (4,"C", 300, 100), (4,"D", 100, 100), (4,"E", -100, 100), (4,"F", -300, 100), (4,"G", -500, 100), (4,"H", -700, 100),
     (3,"A", 700, 300), (3,"B", 500, 300), (3,"C", 300, 300), (3,"D", 100, 300), (3,"E", -100, 300), (3,"F", -300, 300), (3,"G", -500, 300), (3,"H", -700, 300),
     (2,"A", 700, 500), (2,"B", 500, 500), (2,"C", 300, 500), (2,"D", 100, 500), (2,"E", -100, 500), (2,"F", -300, 500), (2,"G", -500, 500), (2,"H", -700, 500),
-    (1,"A", 700, 700), (1,"B", 500, 700), (1,"C", 300, 700), (1,"D", 100, 700), (1,"E", -100, 700), (1,"F", -300, 700), (1,"G", -500, 700), (1,"H", -700, 700)
-]
+    (1,"A", 700, 700), (1,"B", 500, 700), (1,"C", 300, 700), (1,"D", 100, 700), (1,"E", -100, 700), (1,"F", -300, 700), (1,"G", -500, 700), (1,"H", -700, 700)]
 
-selected_piece = None
-game_over = False
-top_down_view = False
 
-def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
+
+def draw_text(x, y, text, font=GLUT_BITMAP_9_BY_15):
     glColor3f(1,1,1)
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
@@ -134,16 +145,16 @@ class Chess_Piece:
         glPopMatrix()
 
 def cursor():
-        global highlight, selected_piece
+        global pointer, selected_piece
         glPushMatrix()
-        glTranslatef(highlight[0], highlight[1],1)
+        glTranslatef(pointer[0], pointer[1],1)
         glColor3f(1, 1, 0)
         glScalef(1, 1, 0.1)
         glutSolidCube(200)
         glPopMatrix()
 
 def highlight_selected_piece():
-    global highlight, selected_piece
+    global pointer, selected_piece
     if selected_piece:
         glPushMatrix()
         glTranslatef(selected_piece.x, selected_piece.y,2)
@@ -218,63 +229,185 @@ def draw_grid():
             glVertex3f(grid_start + 200 + (200*j), grid_start + (200*i), 0)              
     glEnd()
 
+
+def format_time(second):
+    minutes = int(second // 60)
+    secs = int(second % 60)
+    return f"{minutes:02d}:{secs:02d}"
+
+def update_timer():
+    global white_time, black_time, last_time, game_over, white_wins, black_wins
+    if game_over:
+        return
+    current_time = time.time()
+    time_elapsed = current_time - last_time
+    last_time = current_time
+    
+    if turn:
+        white_time -= time_elapsed
+        if white_time <= 0:
+            white_time = 0
+            black_wins = True
+            game_over = True
+    else:
+        black_time -= time_elapsed
+        if black_time <= 0:
+            black_time = 0
+            white_wins = True
+            game_over = True
+
+
+def check_blacks(x, y):
+    for piece in black_list:
+        if piece not in captured_black:
+                if x == piece.x and y == piece.y:
+                    return piece
+
+def delete_black(piece):
+    global black_capture_count
+    captured_black.append(piece)
+    piece.move(-1000, 700 - black_capture_count * 100)
+    black_list.remove(piece)
+
+
+def check_whites(x, y):
+    for piece in white_list:
+        if piece not in captured_white:
+            if x == piece.x and y == piece.y:
+                return piece
+
+def delete_white(piece):
+    global white_capture_count
+
+    captured_white.append(piece)
+    piece.move(1000, -700 + white_capture_count * 100)
+    white_list.remove(piece)
+
+
+
+def reset_game():
+    global turn, selected_piece, game_over, pointer, white_wins, black_wins, white_time, black_time, last_time
+    turn = True
+    selected_piece = None
+    game_over = False
+    white_wins = False
+    black_wins = False
+    pointer = [100, 100]
+    white_time = 600
+    black_time = 600
+    last_time = time.time()
+
+    # Reset black pieces
+    queen_black.move(100, -700)
+    king_black.move(-100, -700)
+    rook1_black.move(700, -700)
+    rook2_black.move(-700, -700)
+    bishop1_black.move(300, -700)
+    bishop2_black.move(-300, -700)
+    knight1_black.move(500, -700)
+    knight2_black.move(-500, -700)
+    pawn1_black.move(700, -500)
+    pawn2_black.move(500, -500)
+    pawn3_black.move(300, -500)
+    pawn4_black.move(100, -500)
+    pawn5_black.move(-100, -500)
+    pawn6_black.move(-300, -500)
+    pawn7_black.move(-500, -500)
+    pawn8_black.move(-700, -500)
+
+    # Reset white pieces
+    queen_white.move(100, 700)
+    king_white.move(-100, 700)
+    rook1_white.move(700, 700)
+    rook2_white.move(-700, 700)
+    bishop1_white.move(300, 700)
+    bishop2_white.move(-300, 700)
+    knight1_white.move(500, 700)
+    knight2_white.move(-500, 700)
+    pawn1_white.move(700, 500)
+    pawn2_white.move(500, 500)
+    pawn3_white.move(300, 500)
+    pawn4_white.move(100, 500)
+    pawn5_white.move(-100, 500)
+    pawn6_white.move(-300, 500)
+    pawn7_white.move(-500, 500)
+    pawn8_white.move(-700, 500)
+
+
 def keyboardListener(key, x, y):
-    global queen_black, selected_piece, highlight, game_over, turn, board_label
+    global queen_black, selected_piece, pointer, game_over, turn, board_label, white_wins, black_wins, last_time, captured_black, captured_white, white_capture_count, black_capture_count
     if not game_over:
         # Move Cursor Up (W key)
         if key == b'w':
-            if highlight[1] > -700:
-                highlight[1] -= 200
+            if pointer[1] > -700:
+                pointer[1] -= 200
 
         # Move Cursor Down (S key)
         if key == b's':
-            if highlight[1] < 700:
-                highlight[1] += 200
+            if pointer[1] < 700:
+                pointer[1] += 200
 
 
         # Move Cursor Left (A key)
         if key == b'a':
-            if highlight[0] < 700:
-                highlight[0] += 200
+            if pointer[0] < 700:
+                pointer[0] += 200
 
         # Move Cursor Right (D key)
         if key == b'd':
-            if highlight[0] > -700:
-                highlight[0] -= 200
+            if pointer[0] > -700:
+                pointer[0] -= 200
 
         # Select/Deselect Piece (Space key)
         if key == b' ':
-            if turn == 'White':
+            if turn:
                 for piece in white_list:
-                    if piece.x == highlight[0] and piece.y == highlight[1]:
+                    if piece.x == pointer[0] and piece.y == pointer[1]:
                         if selected_piece:
                             selected_piece = None
                         else:
                             selected_piece = piece
-                    elif selected_piece:
-                        selected_piece.move(highlight[0], highlight[1])
+                        return
+                if selected_piece:
+                    selected_piece.move(pointer[0], pointer[1])
+                    black_piece = check_blacks(pointer[0], pointer[1])
+                    if black_piece:
+                        delete_black(black_piece)
+                        black_capture_count += 1
+                    selected_piece = None
+                    turn = not turn
+                    last_time = time.time()
+
             else:
                 for piece in black_list:
-                    if piece.x == highlight[0] and piece.y == highlight[1]:
+                    if piece.x == pointer[0] and piece.y == pointer[1]:
                         if selected_piece:
                             selected_piece = None
                         else:
                             selected_piece = piece
-                    elif selected_piece:
-                        selected_piece.move(highlight[0], highlight[1])
+                        return
+                if selected_piece:
+                    selected_piece.move(pointer[0], pointer[1])
+                    white_piece = check_whites(pointer[0], pointer[1])
+                    if white_piece:
+                        delete_white(white_piece)
+                        white_capture_count += 1
 
-        # Toggle cheat vision (V key)
-        if key == b'v':
-            pass
+                    selected_piece = None
+                    turn = not turn
+                    last_time = time.time()
 
     # Reset the game if R key is pressed
     if key == b'r':
-        pass
-
-    if key == b'u':
-        selected_piece = queen_black
-    if key == b'q':
-        selected_piece.move(random.randint(-700, 700), random.randint(-700, 700))
+        reset_game()
+    
+    # Current Player Surrender
+    if key == b'p':
+        if turn:
+            black_wins = True
+        else:
+            white_wins = True
+        game_over = True
 
 def specialKeyListener(key, x, y):
     global camera_pos
@@ -325,6 +458,7 @@ def setupCamera():
         gluLookAt(x, y, z, 0, 0, 0, 0, 0, 1)
 
 def idle():
+    update_timer()
     glutPostRedisplay()
     
 def showScreen():
@@ -375,17 +509,28 @@ def showScreen():
     pawn8_white.draw_pawn()
 
     # Text Display
-    draw_text(10, 770, f"Current Player: {turn}")
+
+    draw_text(20, 10, f"White Time: {format_time(white_time)}")
+    draw_text(830, 10, f"Black Time: {format_time(black_time)}")
+
+    if turn:
+        draw_text(20, 770, f"Turn: White")
+    else:
+        draw_text(20, 770, f"Turn: Black")
 
     if selected_piece:
         for row, col, x, y in board_label:
             if (x, y) == (selected_piece.x, selected_piece.y):
-                draw_text(10, 740, f"Selected Piece: {selected_piece.name} at {col}{row}")
+                draw_text(20, 740, f"Selected Piece: {selected_piece.name} at {col}{row}")
                 break
     else:
-        draw_text(10, 740, f"Selected Piece: No Piece is Selected")
+        draw_text(20, 740, f"Selected Piece: No Piece is Selected")
 
-    draw_text(10, 710, f"Something EPIC")
+    draw_text(20, 710, f"Something EPIC")
+    if white_wins:
+        draw_text(435, 720, f"White Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
+    if black_wins:
+        draw_text(435, 720, f"Black Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
     glutSwapBuffers()
 
 def main():
@@ -393,7 +538,7 @@ def main():
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
-    wind = glutCreateWindow(b"Lab 3")
+    wind = glutCreateWindow(b"3D Chess")
     glutDisplayFunc(showScreen)
     glutKeyboardFunc(keyboardListener)
     glutSpecialFunc(specialKeyListener)
