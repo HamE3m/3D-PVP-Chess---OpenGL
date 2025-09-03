@@ -11,12 +11,22 @@ white = (0.8, 0.8, 0.8)
 black = (0.4, 0.4, 0.4)
 highlight = [100, 100]
 game_score = 0
-turn = 'White'
+turn = 'Black'
+
+board_label = [
+    (8,"A", 700, -700), (8,"B", 500, -700), (8,"C", 300, -700), (8,"D", 100, -700), (8,"E", -100, -700), (8,"F", -300, -700), (8,"G", -500, -700), (8,"H", -700, -700),
+    (7,"A", 700, -500), (7,"B", 500, -500), (7,"C", 300, -500), (7,"D", 100, -500), (7,"E", -100, -500), (7,"F", -300, -500), (7,"G", -500, -500), (7,"H", -700, -500),
+    (6,"A", 700, -300), (6,"B", 500, -300), (6,"C", 300, -300), (6,"D", 100, -300), (6,"E", -100, -300), (6,"F", -300, -300), (6,"G", -500, -300), (6,"H", -700, -300),
+    (5,"A", 700, -100), (5,"B", 500, -100), (5,"C", 300, -100), (5,"D", 100, -100), (5,"E", -100, -100), (5,"F", -300, -100), (5,"G", -500, -100), (5,"H", -700, -100),
+    (4,"A", 700, 100), (4,"B", 500, 100), (4,"C", 300, 100), (4,"D", 100, 100), (4,"E", -100, 100), (4,"F", -300, 100), (4,"G", -500, 100), (4,"H", -700, 100),
+    (3,"A", 700, 300), (3,"B", 500, 300), (3,"C", 300, 300), (3,"D", 100, 300), (3,"E", -100, 300), (3,"F", -300, 300), (3,"G", -500, 300), (3,"H", -700, 300),
+    (2,"A", 700, 500), (2,"B", 500, 500), (2,"C", 300, 500), (2,"D", 100, 500), (2,"E", -100, 500), (2,"F", -300, 500), (2,"G", -500, 500), (2,"H", -700, 500),
+    (1,"A", 700, 700), (1,"B", 500, 700), (1,"C", 300, 700), (1,"D", 100, 700), (1,"E", -100, 700), (1,"F", -300, 700), (1,"G", -500, 700), (1,"H", -700, 700)
+]
 
 selected_piece = None
 game_over = False
 top_down_view = False
-
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glColor3f(1,1,1)
@@ -34,8 +44,6 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
-
-
 
 class Chess_Piece:
 
@@ -136,7 +144,7 @@ def cursor():
 
 def highlight_selected_piece():
     global highlight, selected_piece
-    if selected_piece is not None:
+    if selected_piece:
         glPushMatrix()
         glTranslatef(selected_piece.x, selected_piece.y,2)
         glColor3f(0, 1, 0)
@@ -188,8 +196,6 @@ white_list = [queen_white, king_white, rook1_white, rook2_white, bishop1_white,
                bishop2_white, knight1_white, knight2_white, pawn1_white, pawn2_white,
                  pawn3_white, pawn4_white, pawn5_white, pawn6_white, pawn7_white, pawn8_white]
 
-
-
 def draw_grid():
     glBegin(GL_QUADS)
     for i in range(8):
@@ -210,9 +216,8 @@ def draw_grid():
             glVertex3f(grid_start + 200 + (200*j), grid_start + (200*i), 0)              
     glEnd()
 
-
 def keyboardListener(key, x, y):
-    global queen_black, selected_piece, highlight, game_over, turn
+    global queen_black, selected_piece, highlight, game_over, turn, board_label
     if not game_over:
         # Move forward (W key)
         if key == b'w':
@@ -239,11 +244,17 @@ def keyboardListener(key, x, y):
             if turn == 'White':
                 for piece in white_list:
                     if piece.x == highlight[0] and piece.y == highlight[1]:
-                        selected_piece = piece
+                        if selected_piece:
+                            selected_piece = None
+                        else:
+                            selected_piece = piece
             else:
                 for piece in black_list:
                     if piece.x == highlight[0] and piece.y == highlight[1]:
-                        selected_piece = piece
+                        if selected_piece:
+                            selected_piece = None
+                        else:
+                            selected_piece = piece
 
         # Toggle cheat vision (V key)
         if key == b'v':
@@ -257,7 +268,6 @@ def keyboardListener(key, x, y):
         selected_piece = queen_black
     if key == b'q':
         selected_piece.move(random.randint(-700, 700), random.randint(-700, 700))
-
 
 def specialKeyListener(key, x, y):
     global camera_pos
@@ -285,7 +295,6 @@ def specialKeyListener(key, x, y):
     y = r * math.sin(a)
     camera_pos = (x, y, z)
 
-
 def mouseListener(button, state, x, y):
     global game_over, top_down_view
 
@@ -308,13 +317,11 @@ def setupCamera():
         x, y, z = camera_pos
         gluLookAt(x, y, z, 0, 0, 0, 0, 0, 1)
 
-
 def idle():
     glutPostRedisplay()
     
-
 def showScreen():
-    global selected_piece
+    global selected_piece, board_label
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
     glViewport(0, 0, 1000, 800)
@@ -361,12 +368,18 @@ def showScreen():
     pawn8_white.draw_pawn()
 
     # Text Display
-    draw_text(10, 770, f"Player Life Remaining: {turn}")
-    draw_text(10, 740, f"Game Score: {game_score}")
-    if selected_piece is not None:
-        draw_text(10, 710, f"Selected Piece: {selected_piece.name}")
-    glutSwapBuffers()
+    draw_text(10, 770, f"Current Player: {turn}")
 
+    if selected_piece:
+        for row, col, x, y in board_label:
+            if (x, y) == (selected_piece.x, selected_piece.y):
+                draw_text(10, 740, f"Selected Piece: {selected_piece.name} at {col}{row}")
+                break
+    else:
+        draw_text(10, 740, f"Selected Piece: No Piece is Selected")
+
+    draw_text(10, 710, f"Something EPIC")
+    glutSwapBuffers()
 
 def main():
     glutInit()
