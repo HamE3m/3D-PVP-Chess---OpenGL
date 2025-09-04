@@ -26,6 +26,8 @@ white_capture_count = 0
 white_time = 600
 black_time = 600
 last_time = time.time()
+king_in_check = False
+checkmate = False
 last_move_message = "Last Move: No moves yet"
 
 board_label = [
@@ -341,7 +343,7 @@ def get_valid_moves(piece):
     valid_moves = []
     for x in range(-700, 800, 200):
         for y in range(-700, 800, 200):
-            if can_move_to_position(piece, x, y):
+            if is_legal_move(piece, x, y):
                 valid_moves.append((x, y))
     return valid_moves
 
@@ -353,7 +355,7 @@ def highlight_valid_moves():
             glTranslatef(x, y, 1.5)
             glColor3f(0.38, 0.70, 0.55)
             glScalef(1, 1, 0.1)
-            glutSolidCube(20)
+            glutSolidCube(100)
             glPopMatrix()
 
 def highlight_selected_piece():
@@ -405,11 +407,87 @@ def delete_white(piece):
     white_list.remove(piece)
 
 
+# King Check(Mate) Mechanics ----------------------------------------------------------------------
+    
+def is_king_in_check(king_color):
+    # Find King
+    king = None
+    friendly_pieces = white_list if king_color == white else black_list
+    for piece in friendly_pieces:
+        if isinstance(piece, King):
+            king = piece
+            break
+    if not king:
+        return False
+    # Check Enemy Valid Moves to King's Position
+    enemy_pieces = black_list if king_color == white else white_list
+    for piece in enemy_pieces:
+        if can_move_to_position(piece, king.x, king.y):
+            return True
+    return False
+
+def if_piece_moves_king_in_check(piece, new_x, new_y):
+    # Temporary move
+    old_x, old_y = piece.x, piece.y
+    captured_piece = get_piece_at(new_x, new_y)
+    # Temporary Remove Captured Piece
+    if captured_piece:
+        if captured_piece in white_list:
+            white_list.remove(captured_piece)
+        elif captured_piece in black_list:
+            black_list.remove(captured_piece)
+    piece.x = new_x
+    piece.y = new_y
+    king_in_check_after = is_king_in_check(piece.color)
+    piece.x = old_x
+    piece.y = old_y
+    # Restore Temporary Captured Piece
+    if captured_piece:
+        if captured_piece.color == white:
+            white_list.append(captured_piece)
+        elif captured_piece.color == black:
+            black_list.append(captured_piece)
+    return king_in_check_after
+
+def is_legal_move(piece, new_x, new_y):
+    if not can_move_to_position(piece, new_x, new_y):
+        return False
+    return not if_piece_moves_king_in_check(piece, new_x, new_y)
+
+def is_checkmate(king_color):
+    if not is_king_in_check(king_color):
+        return False
+    # Check for Legal Moves
+    friendly_pieces = white_list if king_color == white else black_list
+    for piece in friendly_pieces[:]:  # slice to avoid list modification
+        for x in range(-700, 800, 200):
+            for y in range(-700, 800, 200):
+                if is_legal_move(piece, x, y):
+                    return False
+    return True
+
+def highlight_king_in_check():
+    if king_in_check:
+        current_color = white if turn else black
+        king = None
+        for piece in (white_list if current_color == white else black_list):
+            if isinstance(piece, King):
+                king = piece
+                break
+        if king:
+            glPushMatrix()
+            glTranslatef(king.x, king.y, 3)
+            glColor3f(1, 0, 0)
+            glScalef(1, 1, 0.1)
+            glutSolidCube(200)
+            glPopMatrix()
+
 # Reset Game -----------------------------------------------------------------------------------------------------------------------------
 
 def reset_game():
-    global turn, selected_piece, game_over, pointer, white_wins, black_wins, white_time, black_time, last_time
+    global turn, selected_piece, game_over, pointer, white_wins, black_wins, white_time, black_time, last_time, last_move_message
     global captured_black, captured_white, black_list, white_list, black_capture_count, white_capture_count
+    global king_in_check, checkmate
     turn = True
     selected_piece = None
     game_over = False
@@ -419,6 +497,9 @@ def reset_game():
     white_time = 600
     black_time = 600
     last_time = time.time()
+    last_move_message = "Last Move: No moves yet"
+    king_in_check = False
+    checkmate = False
     black_list.extend(captured_black)
     white_list.extend(captured_white)
     captured_black.clear()
@@ -432,9 +513,10 @@ def reset_game():
 # Cursor Movement, Piece Selection and Game Mechanics -------------------------------------------------------------------------------------------------------------
 
 def keyboardListener(key, x, y):
-    global queen_black, selected_piece, pointer, game_over, turn, board_label, white_wins, black_wins, last_time, captured_black, captured_white, white_capture_count, black_capture_count
-    if not game_over:
+    global queen_black, selected_piece, pointer, game_over, turn, board_label, white_wins, black_wins, last_time
+    global captured_black, captured_white, white_capture_count, black_capture_count, checkmate, king_in_check
 
+    if not game_over:
         # Cursor Movement (WASD keys)
         if key == b'w':
             if pointer[1] > -700:
@@ -464,8 +546,8 @@ def keyboardListener(key, x, y):
                     else:
                         selected_piece = white_piece
                 elif selected_piece:
-                    # Move Selected Piece
-                    if can_move_to_position(selected_piece, pointer[0], pointer[1]):
+                    # Move Selected Piece (only if it's a legal move)
+                    if is_legal_move(selected_piece, pointer[0], pointer[1]):
                         # Capture Black Pieces in Selected Position
                         selected_piece.move(pointer[0], pointer[1])
                         black_piece = check_blacks(pointer[0], pointer[1])
@@ -474,6 +556,13 @@ def keyboardListener(key, x, y):
                         selected_piece = None
                         turn = not turn
                         last_time = time.time()
+                        
+                        # Check for check and checkmate
+                        if is_king_in_check(black):
+                            if is_checkmate(black):
+                                white_wins = True
+                                game_over = True
+                                checkmate = True
 
             # Black's Turn
             else:  
@@ -488,8 +577,8 @@ def keyboardListener(key, x, y):
                     else:
                         selected_piece = black_piece
                 elif selected_piece:
-                    # Move Selected Piece
-                    if can_move_to_position(selected_piece, pointer[0], pointer[1]):
+                    # Move Selected Piece (only if it's a legal move)
+                    if is_legal_move(selected_piece, pointer[0], pointer[1]):
                         # Capture White Pieces in Selected Position
                         selected_piece.move(pointer[0], pointer[1])
                         white_piece = check_whites(pointer[0], pointer[1])
@@ -498,7 +587,13 @@ def keyboardListener(key, x, y):
                         selected_piece = None
                         turn = not turn
                         last_time = time.time()
-
+                        
+                        # Check for check and checkmate
+                        if is_king_in_check(white):
+                            if is_checkmate(white):
+                                black_wins = True
+                                game_over = True
+                                checkmate = True
     # Reset Game
     if key == b'r':
         reset_game()
@@ -605,16 +700,23 @@ def draw_text(x, y, text, font=GLUT_BITMAP_9_BY_15):
 
 
 def showScreen():
-    global selected_piece, board_label
+    global selected_piece, board_label, white_time, black_time, king_in_check
+    global turn, last_move_message, checkmate, white_wins, black_wins
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
     glViewport(0, 0, 1000, 800)
     setupCamera()
+    
+    # Check for check at the beginning of each frame
+    current_color = white if turn else black
+    king_in_check = is_king_in_check(current_color)
+    
     # Draw Grid, Cursor and Highlights
     draw_grid()
     cursor()
     highlight_valid_moves()
     highlight_selected_piece()
+    highlight_king_in_check()
     #Draw pieces
     for piece in black_list + white_list + captured_black + captured_white:
         piece.draw()
@@ -623,9 +725,15 @@ def showScreen():
     draw_text(830, 10, f"Black Time: {format_time(black_time)}")
     # Turns
     if turn:
-        draw_text(20, 770, f"Turn: White")
+        if king_in_check and not game_over:
+            draw_text(20, 770, f"Turn: White (IN CHECK!)")
+        else:
+            draw_text(20, 770, f"Turn: White")
     else:
-        draw_text(20, 770, f"Turn: Black")
+        if king_in_check and not game_over:
+            draw_text(20, 770, f"Turn: Black (IN CHECK!)")
+        else:        
+            draw_text(20, 770, f"Turn: Black")
     # Board Labels
     if selected_piece:
         for row, col, x, y in board_label:
@@ -637,7 +745,11 @@ def showScreen():
     else:
         draw_text(20, 740, f"Selected Piece: No Piece is Selected")
     draw_text(20, 710, last_move_message)
-    # Surrender Texts
+    # Win Texts
+    if (white_time * black_time) <= 0:
+        draw_text(437, 760, f"Time's Up!", GLUT_BITMAP_TIMES_ROMAN_24)
+    if checkmate:
+        draw_text(435, 760, f"Checkmate!", GLUT_BITMAP_TIMES_ROMAN_24)
     if white_wins:
         draw_text(435, 720, f"White Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
     if black_wins:
