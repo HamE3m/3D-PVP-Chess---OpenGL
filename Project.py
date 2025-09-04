@@ -25,6 +25,8 @@ white_time = 600
 black_time = 600
 last_time = time.time()
 
+last_move_message = "Last Move: No moves yet"
+
 board_label = [
     (8,"A", 700, -700), (8,"B", 500, -700), (8,"C", 300, -700), (8,"D", 100, -700), (8,"E", -100, -700), (8,"F", -300, -700), (8,"G", -500, -700), (8,"H", -700, -700),
     (7,"A", 700, -500), (7,"B", 500, -500), (7,"C", 300, -500), (7,"D", 100, -500), (7,"E", -100, -500), (7,"F", -300, -500), (7,"G", -500, -500), (7,"H", -700, -500),
@@ -36,24 +38,6 @@ board_label = [
     (1,"A", 700, 700), (1,"B", 500, 700), (1,"C", 300, 700), (1,"D", 100, 700), (1,"E", -100, 700), (1,"F", -300, 700), (1,"G", -500, 700), (1,"H", -700, 700)]
 
 
-
-def draw_text(x, y, text, font=GLUT_BITMAP_9_BY_15):
-    glColor3f(1,1,1)
-    glMatrixMode(GL_PROJECTION)
-    glPushMatrix()
-    glLoadIdentity()
-    gluOrtho2D(0, 1000, 0, 800)
-    glMatrixMode(GL_MODELVIEW)
-    glPushMatrix()
-    glLoadIdentity()
-    glRasterPos2f(x, y)
-    for ch in text:
-        glutBitmapCharacter(font, ord(ch))
-    glPopMatrix()
-    glMatrixMode(GL_PROJECTION)
-    glPopMatrix()
-    glMatrixMode(GL_MODELVIEW)
-
 class Chess_Piece:
     def __init__(self, name, position_x, position_y, color):
         self.name = name
@@ -64,13 +48,38 @@ class Chess_Piece:
         self.initial_y = position_y
 
     def move(self, new_x, new_y):
+        global last_move_message
         self.x = new_x
         self.y = new_y
+        for row, col, x, y in board_label:
+            if (x, y) == (self.x, self.y):
+                print(f"{self.name} moved to {col}{row}")
+                last_move_message = f"Last Move: {self.name} moved to {col}{row}"
+                break
 
     def reset_position(self):
         self.x = self.initial_x
         self.y = self.initial_y
 
+    def is_valid_move(self, new_x, new_y):
+        return False
+
+    def is_path_clear(self, new_x, new_y):
+        dx = 0 if new_x == self.x else (1 if new_x > self.x else -1)
+        dy = 0 if new_y == self.y else (1 if new_y > self.y else -1)
+        
+        current_x, current_y = self.x + dx * 200, self.y + dy * 200
+        
+        while current_x != new_x or current_y != new_y:
+            if get_piece_at(current_x, current_y):
+                return False
+            current_x += dx * 200
+            current_y += dy * 200
+        
+        return True
+
+    def draw(self):
+        pass
 
 class Pawn(Chess_Piece):
     def __init__(self, position_x, position_y, color):
@@ -86,6 +95,27 @@ class Pawn(Chess_Piece):
         gluCylinder(gluNewQuadric(), 40, 10, 50, 10, 10)
         glPopMatrix()
 
+    def is_valid_move(self, new_x, new_y):
+        dx = new_x - self.x
+        dy = new_y - self.y
+        direction = -200 if self.color == white else 200
+        
+        # Forward move
+        if dx == 0:
+            # One square forward
+            if dy == direction:
+                return not get_piece_at(new_x, new_y)
+            # Two squares forward from starting position
+            elif dy == 2 * direction and ((self.color == white and self.y == 500) or (self.color == black and self.y == -500)):
+                return not get_piece_at(new_x, new_y) and not get_piece_at(new_x, self.y + direction)
+        
+        # Diagonal capture
+        elif abs(dx) == 200 and dy == direction:
+            target_piece = get_piece_at(new_x, new_y)
+            return target_piece and target_piece.color != self.color
+        
+        return False
+
 class Bishop(Chess_Piece):
     def __init__(self, position_x, position_y, color):
         name = f"{'White' if color == white else 'Black'} Bishop"
@@ -99,6 +129,14 @@ class Bishop(Chess_Piece):
         glTranslatef(0, 0, 100)
         gluCylinder(gluNewQuadric(), 20, 0, 40, 10, 10)
         glPopMatrix()
+
+    def is_valid_move(self, new_x, new_y):
+        # Bishop moves diagonally
+        dx = abs(new_x - self.x)
+        dy = abs(new_y - self.y)
+        if dx == dy and dx > 0:
+            return self.is_path_clear(new_x, new_y)
+        return False
 
 class Rook(Chess_Piece):
     def __init__(self, position_x, position_y, color):
@@ -115,6 +153,12 @@ class Rook(Chess_Piece):
         glTranslatef(0, 0, 50)    
         gluCylinder(gluNewQuadric(), 30, 30, 20, 10, 10)
         glPopMatrix()
+
+    def is_valid_move(self, new_x, new_y):
+        # Rook moves horizontally or vertically
+        if self.x == new_x or self.y == new_y:
+            return self.is_path_clear(new_x, new_y)
+        return False
 
 class Queen(Chess_Piece):
     def __init__(self, position_x, position_y, color):
@@ -135,6 +179,15 @@ class Queen(Chess_Piece):
         glTranslatef(0, 0, 10)
         gluSphere(gluNewQuadric(), 5, 10, 10)
         glPopMatrix()
+
+    def is_valid_move(self, new_x, new_y):
+        dx = abs(new_x - self.x)
+        dy = abs(new_y - self.y)
+
+        # Horizontal, vertical, or diagonal
+        if self.x == new_x or self.y == new_y or dx == dy:
+            return self.is_path_clear(new_x, new_y)
+        return False
 
 class King(Chess_Piece):
     def __init__(self, position_x, position_y, color):
@@ -158,6 +211,12 @@ class King(Chess_Piece):
         glutSolidCube(10)
         glPopMatrix()
 
+    def is_valid_move(self, new_x, new_y):
+        # King moves one square in any direction
+        dx = abs(new_x - self.x)
+        dy = abs(new_y - self.y)
+        return dx <= 200 and dy <= 200 and (dx > 0 or dy > 0)
+
 class Knight(Chess_Piece):
     def __init__(self, position_x, position_y, color):
         name = f"{'White' if color == white else 'Black'} Knight"
@@ -178,7 +237,65 @@ class Knight(Chess_Piece):
         glutSolidCube(20)
         glPopMatrix()
 
+    def is_valid_move(self, new_x, new_y):
+        # Knight moves in L-shape: 2 squares in one direction, 1 in perpendicular
+        dx = abs(new_x - self.x)
+        dy = abs(new_y - self.y)
+        return (dx == 400 and dy == 200) or (dx == 200 and dy == 400)
 
+
+
+
+def get_piece_at(x, y):
+    for piece in black_list + white_list:
+        if piece.x == x and piece.y == y:
+            return piece
+    return None
+
+def can_move_to_position(piece, new_x, new_y):
+    # Check if position is on the board
+    if not (-700 <= new_x <= 700 and -700 <= new_y <= 700):
+        return False
+    
+    # Check if the move is valid for this piece type
+    if not piece.is_valid_move(new_x, new_y):
+        return False
+    
+    # Check if destination has friendly piece
+    target_piece = get_piece_at(new_x, new_y)
+    if target_piece and target_piece.color == piece.color:
+        return False
+    
+    return True
+
+def get_valid_moves(piece):
+    valid_moves = []
+    for x in range(-700, 800, 200):
+        for y in range(-700, 800, 200):
+            if can_move_to_position(piece, x, y):
+                valid_moves.append((x, y))
+    return valid_moves
+
+def highlight_selected_piece():
+    global pointer, selected_piece
+    if selected_piece:
+        glPushMatrix()
+        glTranslatef(selected_piece.x, selected_piece.y, 2)
+        glColor3f(0.4, 0.7, 1)
+        glScalef(1, 1, 0.1)
+        glutSolidCube(200)
+        glPopMatrix()
+
+def highlight_valid_moves():
+    if selected_piece:
+        valid_moves = get_valid_moves(selected_piece)
+        for x, y in valid_moves:
+            glPushMatrix()
+            glTranslatef(x, y, 1.5)
+            glColor3f(0.38, 0.70, 0.55)
+            glScalef(1, 1, 0.1)
+            glutSolidCube(20)
+            glPopMatrix()
 
 def cursor():
         global pointer, selected_piece
@@ -189,15 +306,7 @@ def cursor():
         glutSolidCube(200)
         glPopMatrix()
 
-def highlight_selected_piece():
-    global pointer, selected_piece
-    if selected_piece:
-        glPushMatrix()
-        glTranslatef(selected_piece.x, selected_piece.y,2)
-        glColor3f(0, 1, 0)
-        glScalef(1, 1, 0.1)
-        glutSolidCube(200)
-        glPopMatrix()
+
 
 #Call the blacks
 queen_black = Queen(100, -700, black)
@@ -303,6 +412,7 @@ def delete_black(piece):
     global black_capture_count
     captured_black.append(piece)
     piece.move(-1000, 700 - black_capture_count * 100)
+    black_capture_count += 1
     black_list.remove(piece)
 
 
@@ -317,6 +427,7 @@ def delete_white(piece):
 
     captured_white.append(piece)
     piece.move(1000, -700 + white_capture_count * 100)
+    white_capture_count += 1
     white_list.remove(piece)
 
 
@@ -369,42 +480,53 @@ def keyboardListener(key, x, y):
 
         # Select/Deselect Piece (Space key)
         if key == b' ':
-            if turn:
+            if turn:  # White's turn
+                white_piece = None
                 for piece in white_list:
                     if piece.x == pointer[0] and piece.y == pointer[1]:
-                        if selected_piece:
-                            selected_piece = None
-                        else:
-                            selected_piece = piece
-                        return
-                if selected_piece:
-                    selected_piece.move(pointer[0], pointer[1])
-                    black_piece = check_blacks(pointer[0], pointer[1])
-                    if black_piece:
-                        delete_black(black_piece)
-                        black_capture_count += 1
-                    selected_piece = None
-                    turn = not turn
-                    last_time = time.time()
+                        white_piece = piece
+                        break
+                
+                if white_piece:
+                    if selected_piece:
+                        selected_piece = None
+                    else:
+                        selected_piece = white_piece
+                elif selected_piece:
+                    # Try to move selected piece
+                    if can_move_to_position(selected_piece, pointer[0], pointer[1]):
+                        # Check for capture before moving
+                        black_piece = check_blacks(pointer[0], pointer[1])
+                        selected_piece.move(pointer[0], pointer[1])
+                        if black_piece:
+                            delete_black(black_piece)
+                        selected_piece = None
+                        turn = not turn
+                        last_time = time.time()
 
-            else:
+            else:  # Black's turn
+                black_piece = None
                 for piece in black_list:
                     if piece.x == pointer[0] and piece.y == pointer[1]:
-                        if selected_piece:
-                            selected_piece = None
-                        else:
-                            selected_piece = piece
-                        return
-                if selected_piece:
-                    selected_piece.move(pointer[0], pointer[1])
-                    white_piece = check_whites(pointer[0], pointer[1])
-                    if white_piece:
-                        delete_white(white_piece)
-                        white_capture_count += 1
-
-                    selected_piece = None
-                    turn = not turn
-                    last_time = time.time()
+                        black_piece = piece
+                        break
+                
+                if black_piece:
+                    if selected_piece:
+                        selected_piece = None
+                    else:
+                        selected_piece = black_piece
+                elif selected_piece:
+                    # Try to move selected piece
+                    if can_move_to_position(selected_piece, pointer[0], pointer[1]):
+                        # Check for capture before moving
+                        white_piece = check_whites(pointer[0], pointer[1])
+                        selected_piece.move(pointer[0], pointer[1])
+                        if white_piece:
+                            delete_white(white_piece)
+                        selected_piece = None
+                        turn = not turn
+                        last_time = time.time()
 
     # Reset the game if R key is pressed
     if key == b'r':
@@ -469,7 +591,26 @@ def setupCamera():
 def idle():
     update_timer()
     glutPostRedisplay()
-    
+
+
+def draw_text(x, y, text, font=GLUT_BITMAP_9_BY_15):
+    glColor3f(1,1,1)
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    gluOrtho2D(0, 1000, 0, 800)
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+    glRasterPos2f(x, y)
+    for ch in text:
+        glutBitmapCharacter(font, ord(ch))
+    glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
+
+
 def showScreen():
     global selected_piece, board_label
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -480,6 +621,7 @@ def showScreen():
     #Draw Chess Grid
     draw_grid()
     cursor()
+    highlight_valid_moves()
     highlight_selected_piece()
 
     #Draw pieces
@@ -500,10 +642,13 @@ def showScreen():
             if (x, y) == (selected_piece.x, selected_piece.y):
                 draw_text(20, 740, f"Selected Piece: {selected_piece.name} at {col}{row}")
                 break
+        valid_moves = get_valid_moves(selected_piece)
+        draw_text(20, 680, f"Valid Moves: {len(valid_moves)}")
     else:
         draw_text(20, 740, f"Selected Piece: No Piece is Selected")
 
-    draw_text(20, 710, f"Something EPIC")
+    draw_text(20, 710, last_move_message)
+
     if white_wins:
         draw_text(435, 720, f"White Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
     if black_wins:
