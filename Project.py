@@ -4,13 +4,13 @@ from OpenGL.GLU import *
 import math
 import time
 
-camera_pos = (0,400,800)
+camera_pos = (0,500,800)
 fovY = 120
 grid_start = -800
 white = (0.8, 0.8, 0.8)
 black = (0.4, 0.4, 0.4)
 pointer = [100, 100]
-turn = False
+turn = True
 selected_piece = None
 game_over = False
 top_down_view = False
@@ -20,8 +20,6 @@ captured_black = []
 captured_white = []
 black_capture_count = 0
 white_capture_count = 0
-
-
 
 white_time = 600
 black_time = 600
@@ -57,18 +55,29 @@ def draw_text(x, y, text, font=GLUT_BITMAP_9_BY_15):
     glMatrixMode(GL_MODELVIEW)
 
 class Chess_Piece:
-
     def __init__(self, name, position_x, position_y, color):
         self.name = name
         self.color = color
         self.x = position_x
         self.y = position_y
+        self.initial_x = position_x
+        self.initial_y = position_y
 
     def move(self, new_x, new_y):
         self.x = new_x
         self.y = new_y
 
-    def draw_pawn (self):
+    def reset_position(self):
+        self.x = self.initial_x
+        self.y = self.initial_y
+
+
+class Pawn(Chess_Piece):
+    def __init__(self, position_x, position_y, color):
+        name = f"{'White' if color == white else 'Black'} Pawn"
+        super().__init__(name, position_x, position_y, color)
+
+    def draw(self):
         glPushMatrix()
         glColor3f(*self.color)
         glTranslatef(self.x, self.y, 50)
@@ -77,7 +86,12 @@ class Chess_Piece:
         gluCylinder(gluNewQuadric(), 40, 10, 50, 10, 10)
         glPopMatrix()
 
-    def draw_bishop (self):
+class Bishop(Chess_Piece):
+    def __init__(self, position_x, position_y, color):
+        name = f"{'White' if color == white else 'Black'} Bishop"
+        super().__init__(name, position_x, position_y, color)
+
+    def draw(self):
         glPushMatrix()
         glColor3f(*self.color)
         glTranslatef(self.x, self.y, 0)
@@ -86,7 +100,12 @@ class Chess_Piece:
         gluCylinder(gluNewQuadric(), 20, 0, 40, 10, 10)
         glPopMatrix()
 
-    def draw_rook (self):
+class Rook(Chess_Piece):
+    def __init__(self, position_x, position_y, color):
+        name = f"{'White' if color == white else 'Black'} Rook"
+        super().__init__(name, position_x, position_y, color)
+
+    def draw(self):
         glPushMatrix()
         glColor3f(*self.color)
         glTranslatef(self.x, self.y, 0)
@@ -97,7 +116,12 @@ class Chess_Piece:
         gluCylinder(gluNewQuadric(), 30, 30, 20, 10, 10)
         glPopMatrix()
 
-    def draw_queen (self):
+class Queen(Chess_Piece):
+    def __init__(self, position_x, position_y, color):
+        name = f"{'White' if color == white else 'Black'} Queen"
+        super().__init__(name, position_x, position_y, color)
+
+    def draw(self):
         glPushMatrix()
         glColor3f(*self.color)
         glTranslatef(self.x, self.y, 0)
@@ -112,7 +136,12 @@ class Chess_Piece:
         gluSphere(gluNewQuadric(), 5, 10, 10)
         glPopMatrix()
 
-    def draw_king (self):
+class King(Chess_Piece):
+    def __init__(self, position_x, position_y, color):
+        name = f"{'White' if color == white else 'Black'} King"
+        super().__init__(name, position_x, position_y, color)
+
+    def draw(self):
         glPushMatrix()
         glColor3f(*self.color)
         glTranslatef(self.x, self.y, 0)
@@ -129,7 +158,12 @@ class Chess_Piece:
         glutSolidCube(10)
         glPopMatrix()
 
-    def draw_knight (self):
+class Knight(Chess_Piece):
+    def __init__(self, position_x, position_y, color):
+        name = f"{'White' if color == white else 'Black'} Knight"
+        super().__init__(name, position_x, position_y, color)
+
+    def draw(self):
         glPushMatrix()
         glColor3f(*self.color)
         glTranslatef(self.x, self.y, 0)
@@ -143,6 +177,8 @@ class Chess_Piece:
         glRotatef(110, 1, 0, 0)
         glutSolidCube(20)
         glPopMatrix()
+
+
 
 def cursor():
         global pointer, selected_piece
@@ -164,22 +200,22 @@ def highlight_selected_piece():
         glPopMatrix()
 
 #Call the blacks
-queen_black = Chess_Piece('Black Queen', 100, -700, black)
-king_black = Chess_Piece('Black King', -100, -700, black)
-rook1_black = Chess_Piece('Black Rook', 700, -700, black)
-rook2_black = Chess_Piece('Black Rook', -700, -700, black)
-bishop1_black = Chess_Piece('Black Bishop', 300, -700, black)
-bishop2_black = Chess_Piece('Black Bishop', -300, -700, black)
-knight1_black = Chess_Piece('Black Knight', 500, -700, black)
-knight2_black = Chess_Piece('Black Knight', -500, -700, black)
-pawn1_black = Chess_Piece('Black Pawn', 700, -500, black)
-pawn2_black = Chess_Piece('Black Pawn', 500, -500, black)
-pawn3_black = Chess_Piece('Black Pawn', 300, -500, black)
-pawn4_black = Chess_Piece('Black Pawn', 100, -500, black)
-pawn5_black = Chess_Piece('Black Pawn', -100, -500, black)
-pawn6_black = Chess_Piece('Black Pawn', -300, -500, black)
-pawn7_black = Chess_Piece('Black Pawn', -500, -500, black)
-pawn8_black = Chess_Piece('Black Pawn', -700, -500, black)
+queen_black = Queen(100, -700, black)
+king_black = King(-100, -700, black)
+rook1_black = Rook(700, -700, black)
+rook2_black = Rook(-700, -700, black)
+bishop1_black = Bishop(300, -700, black)
+bishop2_black = Bishop(-300, -700, black)
+knight1_black = Knight(500, -700, black)
+knight2_black = Knight(-500, -700, black)
+pawn1_black = Pawn(700, -500, black)
+pawn2_black = Pawn(500, -500, black)
+pawn3_black = Pawn(300, -500, black)
+pawn4_black = Pawn(100, -500, black)
+pawn5_black = Pawn(-100, -500, black)
+pawn6_black = Pawn(-300, -500, black)
+pawn7_black = Pawn(-500, -500, black)
+pawn8_black = Pawn(-700, -500, black)
 
 black_list = [queen_black, king_black, rook1_black, rook2_black, bishop1_black, 
               bishop2_black, knight1_black, knight2_black, pawn1_black, pawn2_black, 
@@ -187,22 +223,22 @@ black_list = [queen_black, king_black, rook1_black, rook2_black, bishop1_black,
 
 
 # Call the whites
-queen_white = Chess_Piece('White Queen', 100, 700, white)
-king_white = Chess_Piece('White King', -100, 700, white)
-rook1_white = Chess_Piece('White Rook', 700, 700, white)
-rook2_white = Chess_Piece('White Rook', -700, 700, white)
-bishop1_white = Chess_Piece('White Bishop', 300, 700, white)
-bishop2_white = Chess_Piece('White Bishop', -300, 700, white)
-knight1_white = Chess_Piece('White Knight', 500, 700, white)
-knight2_white = Chess_Piece('White Knight', -500, 700, white)
-pawn1_white = Chess_Piece('White Pawn', 700, 500, white)
-pawn2_white = Chess_Piece('White Pawn', 500, 500, white)
-pawn3_white = Chess_Piece('White Pawn', 300, 500, white)
-pawn4_white = Chess_Piece('White Pawn', 100, 500, white)
-pawn5_white = Chess_Piece('White Pawn', -100, 500, white)
-pawn6_white = Chess_Piece('White Pawn', -300, 500, white)
-pawn7_white = Chess_Piece('White Pawn', -500, 500, white)
-pawn8_white = Chess_Piece('White Pawn', -700, 500, white)
+queen_white = Queen(100, 700, white)
+king_white = King(-100, 700, white)
+rook1_white = Rook(700, 700, white)
+rook2_white = Rook(-700, 700, white)
+bishop1_white = Bishop(300, 700, white)
+bishop2_white = Bishop(-300, 700, white)
+knight1_white = Knight(500, 700, white)
+knight2_white = Knight(-500, 700, white)
+pawn1_white = Pawn(700, 500, white)
+pawn2_white = Pawn(500, 500, white)
+pawn3_white = Pawn(300, 500, white)
+pawn4_white = Pawn(100, 500, white)
+pawn5_white = Pawn(-100, 500, white)
+pawn6_white = Pawn(-300, 500, white)
+pawn7_white = Pawn(-500, 500, white)
+pawn8_white = Pawn(-700, 500, white)
 
 white_list = [queen_white, king_white, rook1_white, rook2_white, bishop1_white,
                bishop2_white, knight1_white, knight2_white, pawn1_white, pawn2_white,
@@ -287,6 +323,7 @@ def delete_white(piece):
 
 def reset_game():
     global turn, selected_piece, game_over, pointer, white_wins, black_wins, white_time, black_time, last_time
+    global captured_black, captured_white, black_list, white_list, black_capture_count, white_capture_count
     turn = True
     selected_piece = None
     game_over = False
@@ -296,43 +333,15 @@ def reset_game():
     white_time = 600
     black_time = 600
     last_time = time.time()
+    black_list.extend(captured_black)
+    white_list.extend(captured_white)
+    captured_black.clear()
+    captured_white.clear()
+    black_capture_count = 0
+    white_capture_count = 0
 
-    # Reset black pieces
-    queen_black.move(100, -700)
-    king_black.move(-100, -700)
-    rook1_black.move(700, -700)
-    rook2_black.move(-700, -700)
-    bishop1_black.move(300, -700)
-    bishop2_black.move(-300, -700)
-    knight1_black.move(500, -700)
-    knight2_black.move(-500, -700)
-    pawn1_black.move(700, -500)
-    pawn2_black.move(500, -500)
-    pawn3_black.move(300, -500)
-    pawn4_black.move(100, -500)
-    pawn5_black.move(-100, -500)
-    pawn6_black.move(-300, -500)
-    pawn7_black.move(-500, -500)
-    pawn8_black.move(-700, -500)
-
-    # Reset white pieces
-    queen_white.move(100, 700)
-    king_white.move(-100, 700)
-    rook1_white.move(700, 700)
-    rook2_white.move(-700, 700)
-    bishop1_white.move(300, 700)
-    bishop2_white.move(-300, 700)
-    knight1_white.move(500, 700)
-    knight2_white.move(-500, 700)
-    pawn1_white.move(700, 500)
-    pawn2_white.move(500, 500)
-    pawn3_white.move(300, 500)
-    pawn4_white.move(100, 500)
-    pawn5_white.move(-100, 500)
-    pawn6_white.move(-300, 500)
-    pawn7_white.move(-500, 500)
-    pawn8_white.move(-700, 500)
-
+    for piece in black_list + white_list:
+        piece.reset_position()
 
 def keyboardListener(key, x, y):
     global queen_black, selected_piece, pointer, game_over, turn, board_label, white_wins, black_wins, last_time, captured_black, captured_white, white_capture_count, black_capture_count
@@ -472,44 +481,12 @@ def showScreen():
     draw_grid()
     cursor()
     highlight_selected_piece()
-    #Draw blacks
-    queen_black.draw_queen()
-    king_black.draw_king()
-    rook1_black.draw_rook()
-    rook2_black.draw_rook()
-    bishop1_black.draw_bishop()
-    bishop2_black.draw_bishop()
-    knight1_black.draw_knight()
-    knight2_black.draw_knight()
-    pawn1_black.draw_pawn()
-    pawn2_black.draw_pawn()
-    pawn3_black.draw_pawn()
-    pawn4_black.draw_pawn()
-    pawn5_black.draw_pawn()
-    pawn6_black.draw_pawn()
-    pawn7_black.draw_pawn()
-    pawn8_black.draw_pawn()
 
-    # Draw whites
-    queen_white.draw_queen()
-    king_white.draw_king()
-    rook1_white.draw_rook()
-    rook2_white.draw_rook()
-    bishop1_white.draw_bishop()
-    bishop2_white.draw_bishop()
-    knight1_white.draw_knight()
-    knight2_white.draw_knight()
-    pawn1_white.draw_pawn()
-    pawn2_white.draw_pawn()
-    pawn3_white.draw_pawn()
-    pawn4_white.draw_pawn()
-    pawn5_white.draw_pawn()
-    pawn6_white.draw_pawn()
-    pawn7_white.draw_pawn()
-    pawn8_white.draw_pawn()
+    #Draw pieces
+    for piece in black_list + white_list + captured_black + captured_white:
+        piece.draw()
 
     # Text Display
-
     draw_text(20, 10, f"White Time: {format_time(white_time)}")
     draw_text(830, 10, f"Black Time: {format_time(black_time)}")
 
@@ -538,7 +515,7 @@ def main():
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
-    wind = glutCreateWindow(b"3D Chess")
+    chess = glutCreateWindow(b"3D Chess")
     glutDisplayFunc(showScreen)
     glutKeyboardFunc(keyboardListener)
     glutSpecialFunc(specialKeyListener)
