@@ -16,6 +16,9 @@ pointer = [100, 100]
 turn = True
 selected_piece = None
 game_over = False
+white_draw = False
+black_draw = False
+draw = False
 top_down_view = False
 white_wins = False
 black_wins = False
@@ -248,7 +251,6 @@ class Knight(Chess_Piece):
         dy = abs(new_y - self.y)
         return (dx == 400 and dy == 200) or (dx == 200 and dy == 400)
 
-
 # Initialize Chess Pieces---------------------------------------------------------------------------------------------------------------
 
 # Black Pieces
@@ -295,7 +297,6 @@ white_list = [queen_white, king_white, rook1_white, rook2_white, bishop1_white,
                bishop2_white, knight1_white, knight2_white, pawn1_white, pawn2_white,
                  pawn3_white, pawn4_white, pawn5_white, pawn6_white, pawn7_white, pawn8_white]
 
-
 # Draw Chess Grid---------------------------------------------------------------------------------------------------------------
 
 def draw_grid():
@@ -317,7 +318,6 @@ def draw_grid():
             glVertex3f(grid_start + 200 + (200*j), grid_start + 200 + (200*i), 0)
             glVertex3f(grid_start + 200 + (200*j), grid_start + (200*i), 0)              
     glEnd()
-
 
 #Movement Mechanics and Game Logic--------------------------------------------------------------------------------------------------------------
 
@@ -368,6 +368,11 @@ def highlight_selected_piece():
         glutSolidCube(200)
         glPopMatrix()
 
+def draw_game():
+    global white_draw, black_draw, draw
+    if white_draw and black_draw:
+        draw = True
+
 def cursor():
         global pointer, selected_piece
         glPushMatrix()
@@ -376,7 +381,6 @@ def cursor():
         glScalef(1, 1, 0.1)
         glutSolidCube(200)
         glPopMatrix()
-
 
 # Capture Mechanics -----------------------------------------------------------------------------------------------------------------------------
 
@@ -405,7 +409,6 @@ def delete_white(piece):
     piece.move(1000, -700 + white_capture_count * 100)
     white_capture_count += 1
     white_list.remove(piece)
-
 
 # King Check(Mate) Mechanics ----------------------------------------------------------------------
     
@@ -485,12 +488,15 @@ def highlight_king_in_check():
 # Reset Game -----------------------------------------------------------------------------------------------------------------------------
 
 def reset_game():
-    global turn, selected_piece, game_over, pointer, white_wins, black_wins, white_time, black_time, last_time, last_move_message
-    global captured_black, captured_white, black_list, white_list, black_capture_count, white_capture_count
+    global turn, selected_piece, white_draw, black_draw, draw, pointer, white_wins, black_wins, white_time, black_time, last_time, last_move_message
+    global captured_black, captured_white, black_list, white_list, black_capture_count, white_capture_count, game_over
     global king_in_check, checkmate
     turn = True
     selected_piece = None
     game_over = False
+    draw = False
+    white_draw = False
+    black_draw = False
     white_wins = False
     black_wins = False
     pointer = [100, 100]
@@ -509,14 +515,13 @@ def reset_game():
     for piece in black_list + white_list:
         piece.reset_position()
 
-
 # Cursor Movement, Piece Selection and Game Mechanics -------------------------------------------------------------------------------------------------------------
 
 def keyboardListener(key, x, y):
-    global queen_black, selected_piece, pointer, game_over, turn, board_label, white_wins, black_wins, last_time
-    global captured_black, captured_white, white_capture_count, black_capture_count, checkmate, king_in_check
+    global queen_black, selected_piece, pointer, white_draw, black_draw, draw, turn, board_label, white_wins, black_wins, last_time
+    global captured_black, captured_white, white_capture_count, black_capture_count, checkmate, king_in_check, game_over
 
-    if not game_over:
+    if not game_over and not( white_draw or black_draw):
         # Cursor Movement (WASD keys)
         if key == b'w':
             if pointer[1] > -700:
@@ -594,6 +599,40 @@ def keyboardListener(key, x, y):
                                 black_wins = True
                                 game_over = True
                                 checkmate = True
+
+    # Initiate Draw
+    if key == b't':
+        if turn:
+            white_draw = True
+            draw_game()
+            turn = not turn 
+        else:
+            black_draw = True
+            draw_game()
+            turn = not turn
+
+    # Accept Draw
+    if key == b'y':
+        if turn and black_draw:
+            white_draw = True
+            print("Opponent has accpeted a draw")
+            draw_game()
+        elif not turn and white_draw:
+            black_draw = True
+            print("Opponent has accpeted a draw")
+            draw_game()
+        else:
+            print("No draw was intiated")
+
+    # Reject Draw
+    if key == b'n':
+        if white_draw or black_draw:
+            white_draw, black_draw = False, False
+            print("Opponent has rejected a draw")
+            turn = not turn
+        else:
+            print("No draw was intiated")
+        
     # Reset Game
     if key == b'r':
         reset_game()
@@ -605,7 +644,6 @@ def keyboardListener(key, x, y):
         else:
             white_wins = True
         game_over = True
-
 
 # Camera Movement -----------------------------------------------------------------------------------------------------------------------------
 
@@ -646,7 +684,6 @@ def setupCamera():
         x, y, z = camera_pos
         gluLookAt(x, y, z, 0, 0, 0, 0, 0, 1)
 
-
 # Timer -----------------------------------------------------------------------------------------------------------------------------
 
 def format_time(second):
@@ -655,8 +692,8 @@ def format_time(second):
     return f"{minutes:02d}:{secs:02d}"
 
 def update_timer():
-    global white_time, black_time, last_time, game_over, white_wins, black_wins
-    if game_over:
+    global white_time, black_time, last_time, game_over, draw, white_wins, black_wins
+    if game_over or draw:
         return
     current_time = time.time()
     time_elapsed = current_time - last_time
@@ -678,7 +715,6 @@ def idle():
     update_timer()
     glutPostRedisplay()
 
-
 # Text Display ------------------------------------------------------------------------------------------------------------------------
 
 def draw_text(x, y, text, font=GLUT_BITMAP_9_BY_15):
@@ -698,7 +734,6 @@ def draw_text(x, y, text, font=GLUT_BITMAP_9_BY_15):
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
-
 def showScreen():
     global selected_piece, board_label, white_time, black_time, king_in_check
     global turn, last_move_message, checkmate, white_wins, black_wins
@@ -717,12 +752,15 @@ def showScreen():
     highlight_valid_moves()
     highlight_selected_piece()
     highlight_king_in_check()
+
     #Draw pieces
     for piece in black_list + white_list + captured_black + captured_white:
         piece.draw()
-    # Text Display
+
+    # Display Time
     draw_text(20, 10, f"White Time: {format_time(white_time)}")
     draw_text(830, 10, f"Black Time: {format_time(black_time)}")
+
     # Turns
     if turn:
         if king_in_check and not game_over:
@@ -734,6 +772,7 @@ def showScreen():
             draw_text(20, 770, f"Turn: Black (IN CHECK!)")
         else:        
             draw_text(20, 770, f"Turn: Black")
+
     # Board Labels
     if selected_piece:
         for row, col, x, y in board_label:
@@ -745,7 +784,12 @@ def showScreen():
     else:
         draw_text(20, 740, f"Selected Piece: No Piece is Selected")
     draw_text(20, 710, last_move_message)
-    # Win Texts
+
+    # Draw Call Texts
+    if white_draw or black_draw:
+        draw_text(20, 680, f"Opponent has called for a Draw. Do you agree? Y/N")
+
+    # Win or Draw Texts
     if (white_time * black_time) <= 0:
         draw_text(437, 760, f"Time's Up!", GLUT_BITMAP_TIMES_ROMAN_24)
     if checkmate:
@@ -754,6 +798,8 @@ def showScreen():
         draw_text(435, 720, f"White Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
     if black_wins:
         draw_text(435, 720, f"Black Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
+    if draw:
+        draw_text(435, 720, f"The Game Ended in a Draw!", GLUT_BITMAP_TIMES_ROMAN_24)
     glutSwapBuffers()
 
 def main():
