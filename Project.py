@@ -13,12 +13,14 @@ grid_start = -800
 white = (0.8, 0.8, 0.8)
 black = (0.4, 0.4, 0.4)
 pointer = [100, 100]
+menu = True
 turn = True
 selected_piece = None
 game_over = False
 white_draw = False
 black_draw = False
-draw = False
+draw_flag = False
+resign_flag = False
 top_down_view = False
 white_wins = False
 black_wins = False
@@ -26,8 +28,8 @@ captured_black = []
 captured_white = []
 black_capture_count = 0
 white_capture_count = 0
-white_time = 600
-black_time = 600
+white_time = 60
+black_time = 60
 last_time = time.time()
 king_in_check = False
 checkmate = False
@@ -200,11 +202,14 @@ class King(Chess_Piece):
     def __init__(self, position_x, position_y, color):
         name = f"{'White' if color == white else 'Black'} King"
         super().__init__(name, position_x, position_y, color)
+        self.is_rotated = False
 
     def draw(self):
         glPushMatrix()
         glColor3f(*self.color)
         glTranslatef(self.x, self.y, 0)
+        if self.is_rotated:
+            glRotatef(90, 0, 1, 0)
         gluCylinder(gluNewQuadric(), 40, 10, 100, 10, 10)
         glTranslatef(0, 0, 100)
         gluCylinder(gluNewQuadric(), 10, 20, 20, 10, 10)
@@ -223,7 +228,9 @@ class King(Chess_Piece):
         dx = abs(new_x - self.x)
         dy = abs(new_y - self.y)
         return dx <= 200 and dy <= 200 and (dx > 0 or dy > 0)
-
+    
+    def rotate(self):    
+        self.is_rotated = True
 
 class Knight(Chess_Piece):
     def __init__(self, position_x, position_y, color):
@@ -244,6 +251,7 @@ class Knight(Chess_Piece):
         glRotatef(110, 1, 0, 0)
         glutSolidCube(20)
         glPopMatrix()
+
 
     def is_valid_move(self, new_x, new_y):
         # L Movement
@@ -296,6 +304,51 @@ pawn8_white = Pawn(-700, 500, white)
 white_list = [queen_white, king_white, rook1_white, rook2_white, bishop1_white,
                bishop2_white, knight1_white, knight2_white, pawn1_white, pawn2_white,
                  pawn3_white, pawn4_white, pawn5_white, pawn6_white, pawn7_white, pawn8_white]
+
+# Draw Menu and Game Mode Selection---------------------------------------------------------------------------------------------
+
+def draw_menu():
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity()
+    glViewport(0, 0, 1000, 800)
+    draw_text(350, 600, "Welcome to PVP 3D Chess!", GLUT_BITMAP_TIMES_ROMAN_24)
+    draw_text(350, 500, "Select Game Mode:", GLUT_BITMAP_TIMES_ROMAN_24)
+    draw_text(350, 450, "1. Rapid (10 minutes per player)", GLUT_BITMAP_TIMES_ROMAN_24)
+    draw_text(350, 400, "2. Blitz (5 minutes per player)", GLUT_BITMAP_TIMES_ROMAN_24)
+    draw_text(350, 350, "3. Exit game", GLUT_BITMAP_TIMES_ROMAN_24)
+    draw_text(350, 250, "Press 1 or 2 to select game mode.", GLUT_BITMAP_TIMES_ROMAN_24)
+    draw_text(350, 200, "Press 3 to exit game.", GLUT_BITMAP_TIMES_ROMAN_24)
+    glutSwapBuffers()
+
+def menuScreen():
+    if menu:
+        draw_menu()
+    else:
+        showScreen()
+
+def menuKeyboardListener(key, x, y):
+    global menu, game_mode, white_time, black_time
+    if menu:
+        if key == b'1':
+            game_mode = "Rapid"
+            white_time = 600
+            black_time = 600
+            menu = False
+            glutDisplayFunc(showScreen)
+            glutKeyboardFunc(keyboardListener)  
+            glutSpecialFunc(specialKeyListener)
+            glutMouseFunc(mouseListener)
+        elif key == b'2':
+            game_mode = "Blitz"
+            white_time = 300
+            black_time = 300
+            menu = False
+            glutDisplayFunc(showScreen)
+            glutKeyboardFunc(keyboardListener)
+            glutSpecialFunc(specialKeyListener)
+            glutMouseFunc(mouseListener)
+        elif key == b'3':
+            glutLeaveMainLoop()
 
 # Draw Chess Grid---------------------------------------------------------------------------------------------------------------
 
@@ -371,7 +424,15 @@ def highlight_selected_piece():
 def draw_game():
     global white_draw, black_draw, draw
     if white_draw and black_draw:
-        draw = True
+        draw_flag = True
+
+def resign():
+    global white_wins, black_wins, game_over, turn, resign_flag
+    resign_flag = True
+    if turn:
+        king_white.rotate()
+    else:
+        king_black.rotate()
 
 def cursor():
         global pointer, selected_piece
@@ -488,13 +549,14 @@ def highlight_king_in_check():
 # Reset Game -----------------------------------------------------------------------------------------------------------------------------
 
 def reset_game():
-    global turn, selected_piece, white_draw, black_draw, draw, pointer, white_wins, black_wins, white_time, black_time, last_time, last_move_message
-    global captured_black, captured_white, black_list, white_list, black_capture_count, white_capture_count, game_over
-    global king_in_check, checkmate
+    global turn, selected_piece, white_draw, black_draw, draw_flag, pointer, resign_flag, white_time, black_time, last_time, last_move_message
+    global captured_black, captured_white, black_list, white_list, black_capture_count, white_capture_count, game_over, white_wins, black_wins
+    global king_in_check, checkmate, king_black, king_white
     turn = True
     selected_piece = None
     game_over = False
-    draw = False
+    draw_flag = False
+    resign_flag = False
     white_draw = False
     black_draw = False
     white_wins = False
@@ -512,13 +574,17 @@ def reset_game():
     captured_white.clear()
     black_capture_count = 0
     white_capture_count = 0
+
+    king_white.is_rotated = False
+    king_black.is_rotated = False
+
     for piece in black_list + white_list:
         piece.reset_position()
 
 # Cursor Movement, Piece Selection and Game Mechanics -------------------------------------------------------------------------------------------------------------
 
 def keyboardListener(key, x, y):
-    global queen_black, selected_piece, pointer, white_draw, black_draw, draw, turn, board_label, white_wins, black_wins, last_time
+    global queen_black, selected_piece, pointer, white_draw, black_draw, draw_flag, turn, board_label, white_wins, black_wins, last_time
     global captured_black, captured_white, white_capture_count, black_capture_count, checkmate, king_in_check, game_over
 
     if not game_over and not( white_draw or black_draw):
@@ -620,6 +686,7 @@ def keyboardListener(key, x, y):
         elif not turn and white_draw:
             black_draw = True
             print("Opponent has accpeted a draw")
+            draw_text(300, 760, f"Opponent has accpeted a draw", GLUT_BITMAP_TIMES_ROMAN_24)
             draw_game()
         else:
             print("No draw was intiated")
@@ -632,18 +699,14 @@ def keyboardListener(key, x, y):
             turn = not turn
         else:
             print("No draw was intiated")
-        
+
     # Reset Game
     if key == b'r':
         reset_game()
     
-    # Current Player Surrender
+    # Current Player Resigns
     if key == b'p':
-        if turn:
-            black_wins = True
-        else:
-            white_wins = True
-        game_over = True
+        resign()
 
 # Camera Movement -----------------------------------------------------------------------------------------------------------------------------
 
@@ -692,8 +755,8 @@ def format_time(second):
     return f"{minutes:02d}:{secs:02d}"
 
 def update_timer():
-    global white_time, black_time, last_time, game_over, draw, white_wins, black_wins
-    if game_over or draw:
+    global white_time, black_time, last_time, game_over, draw_flag, resign_flag, white_wins, black_wins
+    if game_over or draw_flag or resign_flag:
         return
     current_time = time.time()
     time_elapsed = current_time - last_time
@@ -798,8 +861,13 @@ def showScreen():
         draw_text(435, 720, f"White Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
     if black_wins:
         draw_text(435, 720, f"Black Wins!", GLUT_BITMAP_TIMES_ROMAN_24)
-    if draw:
+    if draw_flag:
         draw_text(435, 720, f"The Game Ended in a Draw!", GLUT_BITMAP_TIMES_ROMAN_24)
+    if resign_flag:
+        if turn:
+            draw_text(435, 720, f"Black Wins by Resignation!", GLUT_BITMAP_TIMES_ROMAN_24)
+        else:
+            draw_text(435, 720, f"White Wins by Resignation!", GLUT_BITMAP_TIMES_ROMAN_24)
     glutSwapBuffers()
 
 def main():
@@ -807,11 +875,9 @@ def main():
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
-    chess = glutCreateWindow(b"3D Chess")
-    glutDisplayFunc(showScreen)
-    glutKeyboardFunc(keyboardListener)
-    glutSpecialFunc(specialKeyListener)
-    glutMouseFunc(mouseListener)
+    chess = glutCreateWindow(b"PVP 3D Chess")
+    glutDisplayFunc(menuScreen)
+    glutKeyboardFunc(menuKeyboardListener)
     glutIdleFunc(idle)
     glutMainLoop()
 
